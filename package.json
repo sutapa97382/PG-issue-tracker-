@@ -1,0 +1,14 @@
+{
+  "name": "propmate-360",
+  "private": true,
+  "version": "1.0.0",
+  "description": "PropMate 360 - PG Property Management SaaS (Frontend + Backend)",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "frontend": "npm --prefix frontend run dev",
+    "backend": "npm --prefix backend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "start:backend": "npm --prefix backend start",
+    "install:all": "npm --prefix frontend install && npm --prefix backend install"
+  }
+}
