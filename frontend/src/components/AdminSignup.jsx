@@ -54,6 +54,7 @@ export const AdminSignup = ({ onNavigateToLogin }) => {
     setIsLoading(true);
     setStatusMessage(null);
 
+    localStorage.setItem('propmate_admin_name', formData.fullName.trim());
     localStorage.setItem('propmate_admin_email', formData.email.trim().toLowerCase());
     localStorage.setItem('propmate_admin_password', formData.password);
 
@@ -263,7 +264,7 @@ export const AdminSignup = ({ onNavigateToLogin }) => {
                   </select>
                   <div className="select-chevron">
                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                      <path d="M1 1.5L6 6.5L11 1.5" stroke="#64748B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M1 1.5L6 6.5L11 1.5" stroke="#64748B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                 </div>

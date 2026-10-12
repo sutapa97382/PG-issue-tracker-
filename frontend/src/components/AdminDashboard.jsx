@@ -46,7 +46,20 @@ const getCategoryIcon = (category) => {
 };
 
 
-export const AdminDashboard = ({ onLogout }) => {
+export const AdminDashboard = ({ adminInfo, onLogout }) => {
+  // Admin display name & initials (clean human name)
+  let adminName = adminInfo?.name || localStorage.getItem('propmate_admin_name') || 'Sutapa';
+  if (/sutapamaity\d*/i.test(adminName)) {
+    adminName = 'Sutapa';
+  }
+  const adminInitials = adminName
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase() || 'S';
+
   const [activeTab, setActiveTab] = useState('Properties / Rooms'); // Default to 'Properties / Rooms' as requested
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewProblemModal, setShowNewProblemModal] = useState(false);
@@ -309,17 +322,15 @@ export const AdminDashboard = ({ onLogout }) => {
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const isActive = activeTab === item.name;
-            const isPropertiesRooms = item.name === 'Properties / Rooms';
             return (
               <button
                 key={item.name}
                 type="button"
-                className={`sidebar-nav-btn ${isActive ? 'active' : ''} ${isPropertiesRooms ? 'properties-rooms-item' : ''}`}
+                className={`sidebar-nav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => setActiveTab(item.name)}
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-text">{item.name}</span>
-                {isPropertiesRooms && isActive && <span className="active-dot"></span>}
               </button>
             );
           })}
@@ -342,11 +353,17 @@ export const AdminDashboard = ({ onLogout }) => {
         {/* Top Header Bar */}
         <header className="dashboard-topbar" style={{ justifyContent: 'flex-end' }}>
           <div className="topbar-actions">
-            {/* User Profile Dropdown */}
-            <div className="topbar-profile-box">
-              <div className="profile-avatar">AU</div>
-              <span className="profile-name">Admin User</span>
-              <ChevronDown size={15} className="profile-chevron" />
+            {/* User Profile */}
+            <div className="topbar-profile-box" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="profile-avatar">{adminInitials}</div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="profile-name" style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>
+                  {adminName}
+                </span>
+                <span className="profile-role" style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, lineHeight: 1.2 }}>
+                  Admin
+                </span>
+              </div>
             </div>
           </div>
         </header>

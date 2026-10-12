@@ -5,7 +5,7 @@
 .admin-dashboard-container {
   display: flex;
   min-height: 100vh;
-  width: 100vw;
+  width: 100%;
   background-color: #f8fafc;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   color: #0f172a;
@@ -274,6 +274,13 @@
   font-size: 13.5px;
   font-weight: 600;
   color: #1e293b;
+}
+
+.profile-role {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.2;
 }
 
 .profile-chevron {
@@ -896,11 +903,7 @@
 }
 
 .active-dot {
-  width: 7px;
-  height: 7px;
-  background-color: #38bdf8;
-  border-radius: 9999px;
-  margin-left: auto;
+  display: none !important;
 }
 
 /* Dashboard Section Summary */

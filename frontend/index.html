@@ -1,16 +1,75 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230B1E48'/><circle cx='50' cy='50' r='36' stroke='%2300E5FF' stroke-width='6' fill='none'/><path d='M35 65V45L50 32L65 45V65H35Z' fill='none' stroke='%23ffffff' stroke-width='5'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PropMate 360 - 360° Property Management</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    (function() {
+      try {
+        var s = localStorage.getItem('propmate_auth_session');
+        if (s) {
+          var sess = JSON.parse(s);
+          if (sess && sess.expiresAt && Date.now() < sess.expiresAt) {
+            document.documentElement.className = 'is-authenticated preload-active';
+          }
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230B1E48'/><circle cx='50' cy='50' r='36' stroke='%2300E5FF' stroke-width='6' fill='none'/><path d='M35 65V45L50 32L65 45V65H35Z' fill='none' stroke='%23ffffff' stroke-width='5'/></svg>" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PropMate 360 - 360° Property Management</title>
+  
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #f8fafc;
+      font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Lock the 250px dark sidebar background immediately so reload never paints a white strip on the left */
+    html.is-authenticated,
+    html.is-authenticated body {
+      background-color: #f8fafc;
+      background-image: linear-gradient(to right, #071536 0px, #071536 250px, #f8fafc 250px, #f8fafc 100%);
+      background-repeat: no-repeat;
+    }
+    /* Suppress transitions on initial reload frame to prevent CSS animation flash */
+    .preload-active *,
+    .preload-active *::before,
+    .preload-active *::after {
+      transition: none !important;
+      animation-duration: 0s !important;
+    }
+    #root {
+      min-height: 100vh;
+      width: 100%;
+    }
+  </style>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=optional"
+    rel="stylesheet">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  <script>
+    window.requestAnimationFrame(function() {
+      setTimeout(function() {
+        document.documentElement.classList.remove('preload-active');
+      }, 150);
+    });
+  </script>
+</body>
 </html>

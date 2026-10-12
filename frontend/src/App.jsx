@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, CheckCircle2, Shield, User, Key, X } from 'lucide-react';
 import { PropMateLogo } from './components/PropMateLogo';
 import { BuildingIllustration } from './components/BuildingIllustration';
@@ -8,10 +8,93 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { UserDashboard } from './components/UserDashboard';
 import './App.css';
 
+const SESSION_COOKIE_NAME = 'propmate_auth_session';
+const SESSION_DURATION_HOURS = 2;
+
+// Set 2-hour cookie and localStorage
+const setAuthSession = (sessionData, hours = SESSION_DURATION_HOURS) => {
+  const expiresAt = Date.now() + hours * 60 * 60 * 1000;
+  const payload = { ...sessionData, expiresAt };
+  try {
+    const jsonStr = JSON.stringify(payload);
+    const maxAgeSeconds = hours * 60 * 60;
+    // Set cookie valid for 2 hours
+    document.cookie = `${SESSION_COOKIE_NAME}=${encodeURIComponent(jsonStr)}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+    // Dual storage in localStorage for resilience
+    localStorage.setItem(SESSION_COOKIE_NAME, jsonStr);
+  } catch (err) {
+    console.error('Failed to set auth session:', err);
+  }
+};
+
+// Retrieve and validate auth session
+const getAuthSession = () => {
+  try {
+    let rawData = null;
+    // 1. Check localStorage first (fastest, synchronous)
+    rawData = localStorage.getItem(SESSION_COOKIE_NAME);
+
+    // 2. Fallback to cookies
+    if (!rawData) {
+      const cookies = document.cookie.split(';');
+      for (let c of cookies) {
+        const trimmed = c.trim();
+        if (trimmed.startsWith(`${SESSION_COOKIE_NAME}=`)) {
+          rawData = decodeURIComponent(trimmed.substring(SESSION_COOKIE_NAME.length + 1));
+          break;
+        }
+      }
+    }
+
+    if (!rawData) return null;
+
+    const session = JSON.parse(rawData);
+    // Check if session is within the 2-hour validity window
+    if (session && session.expiresAt && Date.now() < session.expiresAt) {
+      if (session.role === 'Admin') {
+        if (!session.name || /sutapamaity\d*/i.test(session.name)) {
+          session.name = 'Sutapa';
+        }
+      }
+      return session;
+    }
+
+    // Expired
+    clearAuthSession();
+    return null;
+  } catch (err) {
+    console.error('Failed to parse auth session:', err);
+    return null;
+  }
+};
+
+// Clear auth session (on logout or expiry)
+const clearAuthSession = () => {
+  try {
+    document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+    localStorage.removeItem(SESSION_COOKIE_NAME);
+  } catch (err) {
+    console.error('Failed to clear auth session:', err);
+  }
+};
+
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('login'); // 'login' | 'admin-signup' | 'admin-dashboard' | 'user-dashboard'
-  const [currentTenant, setCurrentTenant] = useState(null);
-  const [role, setRole] = useState('Tenant'); // 'Tenant' | 'Admin'
+  const initialSession = getAuthSession();
+  const [currentPage, setCurrentPage] = useState(() => initialSession?.currentPage || 'login'); // 'login' | 'admin-signup' | 'admin-dashboard' | 'user-dashboard'
+  const [currentTenant, setCurrentTenant] = useState(() => initialSession?.currentTenant || null);
+  const [currentAdmin, setCurrentAdmin] = useState(() => {
+    if (initialSession?.role === 'Admin') {
+      let name = initialSession.name || localStorage.getItem('propmate_admin_name');
+      if (!name || /sutapamaity\d*/i.test(name)) name = 'Sutapa';
+      return {
+        name,
+        email: initialSession.email || ''
+      };
+    }
+    const storedName = localStorage.getItem('propmate_admin_name');
+    return { name: storedName && !/sutapamaity\d*/i.test(storedName) ? storedName : 'Sutapa' };
+  });
+  const [role, setRole] = useState(() => initialSession?.role || 'Tenant'); // 'Tenant' | 'Admin'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secretKey, setSecretKey] = useState('');
@@ -20,6 +103,25 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [showModal, setShowModal] = useState(null); // 'signup' | 'forgot' | 'contact' | null
+
+  // Auto-logout when 2 hours have expired
+  useEffect(() => {
+    const checkExpiry = () => {
+      const session = getAuthSession();
+      if (!session && (currentPage === 'user-dashboard' || currentPage === 'admin-dashboard')) {
+        clearAuthSession();
+        setCurrentPage('login');
+        setCurrentTenant(null);
+        setStatusMessage({
+          type: 'error',
+          text: 'Session expired after 2 hours. Please log in again.'
+        });
+      }
+    };
+
+    const timer = setInterval(checkExpiry, 30000);
+    return () => clearInterval(timer);
+  }, [currentPage]);
 
   // Role descriptions & demo logins
   const roleInfo = {
@@ -63,22 +165,30 @@ export default function App() {
         (r) => r.secretKey && r.secretKey.trim().toUpperCase() === cleanKey
       );
 
-      // Validate secret key
-      if (!matchedRoom && !cleanKey.startsWith('ROOM-') && cleanKey.length < 5) {
-        setStatusMessage({
-          type: 'error',
-          text: 'Invalid Secret Key. Please check the secret key provided by your admin.'
-        });
+      // Strict validation: Only allow login if this secret key was created by Admin
+      if (!matchedRoom) {
+        if (rooms.length === 0) {
+          setStatusMessage({
+            type: 'error',
+            text: 'No rooms registered yet. Please ask your admin to add your room and provide your secret key.'
+          });
+        } else {
+          setStatusMessage({
+            type: 'error',
+            text: 'Invalid Secret Key. Please enter the secret key provided by your admin.'
+          });
+        }
         return;
       }
 
-      const tenantData = matchedRoom || {
-        tenant: 'Tenant User',
-        room: cleanKey.includes('-') ? cleanKey.split('-')[1] : 'Room 101',
-        secretKey: cleanKey
-      };
+      // Save 2-hour session cookie
+      setAuthSession({
+        role: 'Tenant',
+        currentPage: 'user-dashboard',
+        currentTenant: matchedRoom
+      }, 2);
 
-      setCurrentTenant(tenantData);
+      setCurrentTenant(matchedRoom);
       setStatusMessage(null);
       setCurrentPage('user-dashboard');
       return;
@@ -101,6 +211,36 @@ export default function App() {
     }
 
     if (role === 'Admin') {
+      const cleanEmail = email.trim();
+      const storedName = localStorage.getItem('propmate_admin_name');
+      let adminName = storedName;
+      if (!adminName || /sutapamaity\d*/i.test(adminName)) {
+        if (/^sutapa/i.test(cleanEmail)) {
+          adminName = 'Sutapa';
+        } else if (cleanEmail) {
+          let prefix = cleanEmail.split('@')[0].replace(/\d+$/, '');
+          adminName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+        }
+      }
+      if (!adminName) adminName = 'Sutapa';
+
+      // Persist clean name in localStorage
+      localStorage.setItem('propmate_admin_name', adminName);
+
+      const adminObj = {
+        name: adminName,
+        email: cleanEmail
+      };
+
+      // Save 2-hour session cookie
+      setAuthSession({
+        role: 'Admin',
+        currentPage: 'admin-dashboard',
+        email: cleanEmail,
+        name: adminName
+      }, 2);
+
+      setCurrentAdmin(adminObj);
       setStatusMessage(null);
       setCurrentPage('admin-dashboard');
       return;
@@ -113,12 +253,21 @@ export default function App() {
         <UserDashboard
           tenantInfo={currentTenant}
           onLogout={() => {
+            clearAuthSession();
             setCurrentPage('login');
             setCurrentTenant(null);
+            setSecretKey('');
           }}
         />
       ) : currentPage === 'admin-dashboard' ? (
-        <AdminDashboard onLogout={() => setCurrentPage('login')} />
+        <AdminDashboard
+          adminInfo={currentAdmin}
+          onLogout={() => {
+            clearAuthSession();
+            setCurrentPage('login');
+            setCurrentAdmin(null);
+          }}
+        />
       ) : currentPage === 'admin-signup' ? (
         <AdminSignup
           onNavigateToLogin={() => setCurrentPage('login')}
