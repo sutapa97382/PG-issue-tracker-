@@ -25,7 +25,8 @@ import {
   UploadCloud,
   Image as ImageIcon,
   Trash2,
-  Camera
+  Camera,
+  Menu
 } from 'lucide-react';
 import './AdminDashboard.css';
 
@@ -80,8 +81,10 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
       console.error(e);
     }
   }, [activeTab]);
+
   const [toastMessage, setToastMessage] = useState(null);
   const [showNewProblemModal, setShowNewProblemModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Custom dropdown states
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -302,10 +305,28 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
 
   return (
     <div className="admin-dashboard-container">
+      {/* Mobile Backdrop Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* =========================================================================
           SIDEBAR (Navy Blue - User Dashboard)
           ========================================================================= */}
-      <aside className="dashboard-sidebar">
+      <aside className={`dashboard-sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        {/* Mobile Close Button (X) */}
+        <button
+          type="button"
+          className="sidebar-mobile-close-btn"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-label="Close menu"
+        >
+          <X size={18} />
+        </button>
+
         {/* Brand Logo & Header */}
         <div className="sidebar-brand-box">
           <div className="sidebar-logo-row">
@@ -330,7 +351,10 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
           <button
             type="button"
             className={`sidebar-nav-btn ${activeTab === 'Report problem' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Report problem')}
+            onClick={() => {
+              setActiveTab('Report problem');
+              setMobileMenuOpen(false);
+            }}
           >
             <span className="nav-icon"><AlertCircle size={18} /></span>
             <span className="nav-text">Report problem</span>
@@ -340,7 +364,10 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
           <button
             type="button"
             className={`sidebar-nav-btn ${activeTab === 'My problem' ? 'active' : ''}`}
-            onClick={() => setActiveTab('My problem')}
+            onClick={() => {
+              setActiveTab('My problem');
+              setMobileMenuOpen(false);
+            }}
           >
             <span className="nav-icon"><ClipboardList size={18} /></span>
             <span className="nav-text">My problem</span>
@@ -359,7 +386,6 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
                 {totalMyProblems}
               </span>
             )}
-            {/* Active tab */}
           </button>
         </nav>
 
@@ -379,7 +405,10 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
           <button
             type="button"
             className="sidebar-logout-btn"
-            onClick={onLogout}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onLogout();
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -409,7 +438,24 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
       <div className="dashboard-main-area">
         {/* Top Header Bar */}
         <header className="dashboard-topbar" style={{ justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '16px 28px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b' }}>
+          {/* Mobile Hamburger & Logo */}
+          <div className="mobile-topbar-left">
+            <button
+              type="button"
+              className="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '15px', lineHeight: 1.2 }}>PropMate 360</span>
+              <span style={{ fontSize: '10px', color: '#0284c7', fontWeight: 700, letterSpacing: '0.4px' }}>TENANT</span>
+            </div>
+          </div>
+
+          {/* Desktop Breadcrumb */}
+          <div className="desktop-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b' }}>
             <span>Tenant Dashboard</span>
             <ChevronRight size={14} />
             <span style={{ color: '#0f172a', fontWeight: 600 }}>{activeTab}</span>

@@ -1000,3 +1000,44 @@
 .inline-action-link:hover {
   color: #0043a8;
 }
+
+/* ==========================================================================
+   MOBILE RESPONSIVE LOGIN / SIGNUP (< 900px)
+   ========================================================================== */
+@media (max-width: 900px) {
+  .login-page-container {
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .hero-section {
+    flex: none;
+    padding: 24px 20px;
+    align-items: center;
+    text-align: center;
+    min-height: auto;
+  }
+
+  .hero-center-art,
+  .halftone-dots-wrapper,
+  .hero-footer-text,
+  .complex-art-wrapper,
+  .admin-footer-text {
+    display: none !important;
+  }
+
+  .form-section {
+    flex: 1;
+    padding: 24px 16px;
+    align-items: flex-start;
+  }
+
+  .login-card {
+    padding: 26px 20px;
+    border-radius: 16px;
+  }
+
+  .card-title {
+    font-size: 24px;
+  }
+}

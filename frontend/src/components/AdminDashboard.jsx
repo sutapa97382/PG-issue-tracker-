@@ -21,7 +21,8 @@ import {
   EyeOff,
   SlidersHorizontal,
   ChevronRight,
-  Trash2
+  Trash2,
+  Menu
 } from 'lucide-react';
 import './AdminDashboard.css';
 
@@ -70,6 +71,7 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
   const [showAllKeys, setShowAllKeys] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     changePassword: ''
@@ -296,10 +298,28 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
 
   return (
     <div className="admin-dashboard-container">
+      {/* Mobile Backdrop Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* =========================================================================
           LEFT SIDEBAR (Navy Blue)
           ========================================================================= */}
-      <aside className="dashboard-sidebar">
+      <aside className={`dashboard-sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        {/* Mobile Close Button (X) */}
+        <button
+          type="button"
+          className="sidebar-mobile-close-btn"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-label="Close menu"
+        >
+          <X size={18} />
+        </button>
+
         {/* Logo & Enterprise Subtitle */}
         <div className="sidebar-brand-box">
           <div className="sidebar-logo-row">
@@ -327,7 +347,10 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
                 key={item.name}
                 type="button"
                 className={`sidebar-nav-btn ${isActive ? 'active' : ''}`}
-                onClick={() => setActiveTab(item.name)}
+                onClick={() => {
+                  setActiveTab(item.name);
+                  setMobileMenuOpen(false);
+                }}
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-text">{item.name}</span>
@@ -339,7 +362,14 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
         {/* Sidebar Footer */}
         <div className="sidebar-footer">
           <span className="sidebar-version">v2.4.1</span>
-          <button type="button" className="sidebar-logout-btn" onClick={onLogout}>
+          <button
+            type="button"
+            className="sidebar-logout-btn"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onLogout();
+            }}
+          >
             <LogOut size={16} />
             <span>Log out</span>
           </button>
@@ -351,7 +381,30 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
           ========================================================================= */}
       <div className="dashboard-main-area">
         {/* Top Header Bar */}
-        <header className="dashboard-topbar" style={{ justifyContent: 'flex-end' }}>
+        <header className="dashboard-topbar" style={{ justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '16px 28px' }}>
+          {/* Mobile Hamburger & Logo */}
+          <div className="mobile-topbar-left">
+            <button
+              type="button"
+              className="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 700, color: '#0F172A', fontSize: '15px', lineHeight: 1.2 }}>PropMate 360</span>
+              <span style={{ fontSize: '10px', color: '#2563eb', fontWeight: 700, letterSpacing: '0.4px' }}>ADMIN</span>
+            </div>
+          </div>
+
+          {/* Desktop Breadcrumb */}
+          <div className="desktop-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b' }}>
+            <span>Admin Console</span>
+            <ChevronRight size={14} />
+            <span style={{ color: '#0f172a', fontWeight: 600 }}>{activeTab}</span>
+          </div>
+
           <div className="topbar-actions">
             {/* User Profile */}
             <div className="topbar-profile-box" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

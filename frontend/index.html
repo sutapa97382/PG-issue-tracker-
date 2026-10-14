@@ -34,12 +34,14 @@
       color: #0f172a;
       -webkit-font-smoothing: antialiased;
     }
-    /* Lock the 250px dark sidebar background immediately so reload never paints a white strip on the left */
-    html.is-authenticated,
-    html.is-authenticated body {
-      background-color: #f8fafc;
-      background-image: linear-gradient(to right, #071536 0px, #071536 250px, #f8fafc 250px, #f8fafc 100%);
-      background-repeat: no-repeat;
+    /* Lock the 250px dark sidebar background on desktop so reload never paints a white strip on the left */
+    @media (min-width: 901px) {
+      html.is-authenticated,
+      html.is-authenticated body {
+        background-color: #f8fafc;
+        background-image: linear-gradient(to right, #071536 0px, #071536 250px, #f8fafc 250px, #f8fafc 100%);
+        background-repeat: no-repeat;
+      }
     }
     /* Suppress transitions on initial reload frame to prevent CSS animation flash */
     .preload-active *,
