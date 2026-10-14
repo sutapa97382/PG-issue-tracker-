@@ -106,26 +106,6 @@
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
-/* Sidebar Back Navigation Item (clean nav option, no card container) */
-.sidebar-back-nav-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-}
-
-.sidebar-back-nav-btn:hover {
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.06);
-}
-
-.sidebar-back-nav-btn .nav-icon svg {
-  transition: transform 0.2s ease;
-}
-
-.sidebar-back-nav-btn:hover .nav-icon svg {
-  transform: translateX(-3px);
-}
 
 .nav-icon {
   display: flex;

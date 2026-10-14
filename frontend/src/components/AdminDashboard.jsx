@@ -21,8 +21,7 @@ import {
   EyeOff,
   SlidersHorizontal,
   ChevronRight,
-  Trash2,
-  ArrowLeft
+  Trash2
 } from 'lucide-react';
 import './AdminDashboard.css';
 
@@ -62,42 +61,6 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
     .toUpperCase() || 'S';
 
   const [activeTab, setActiveTab] = useState('Properties / Rooms'); // Default to 'Properties / Rooms' as requested
-  const [tabHistory, setTabHistory] = useState([]);
-
-  // Navigate to tab and record history so user can back one by one
-  const handleTabClick = (tabName) => {
-    if (tabName !== activeTab) {
-      setTabHistory((prev) => [...prev, activeTab]);
-      setActiveTab(tabName);
-    }
-  };
-
-  // Back step-by-step: modals first -> search/filter -> previous tabs one by one -> login
-  const handleBack = () => {
-    if (showNewProblemModal || showAddRoomModal) {
-      setShowNewProblemModal(false);
-      setShowAddRoomModal(false);
-      return;
-    }
-    if (searchQuery.trim() !== '' || statusFilter !== 'All') {
-      setSearchQuery('');
-      setStatusFilter('All');
-      return;
-    }
-    if (tabHistory.length > 0) {
-      const prevTab = tabHistory[tabHistory.length - 1];
-      setTabHistory((prev) => prev.slice(0, prev.length - 1));
-      setActiveTab(prevTab);
-      return;
-    }
-    if (activeTab !== 'Properties / Rooms') {
-      setActiveTab('Properties / Rooms');
-      return;
-    }
-    if (onLogout) {
-      onLogout();
-    }
-  };
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewProblemModal, setShowNewProblemModal] = useState(false);
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
@@ -357,23 +320,6 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
 
         {/* Navigation Menu */}
         <nav className="sidebar-nav">
-          {/* Back Arrow Navigation Option */}
-          <button
-            type="button"
-            className="sidebar-nav-btn sidebar-back-nav-btn"
-            onClick={handleBack}
-            title={
-              showNewProblemModal || showAddRoomModal
-                ? 'Close modal / Back'
-                : tabHistory.length > 0
-                ? `Back to ${tabHistory[tabHistory.length - 1]}`
-                : 'Back to Login'
-            }
-          >
-            <span className="nav-icon"><ArrowLeft size={18} /></span>
-            <span className="nav-text">Back</span>
-          </button>
-
           {navItems.map((item) => {
             const isActive = activeTab === item.name;
             return (
@@ -381,7 +327,7 @@ export const AdminDashboard = ({ adminInfo, onLogout }) => {
                 key={item.name}
                 type="button"
                 className={`sidebar-nav-btn ${isActive ? 'active' : ''}`}
-                onClick={() => handleTabClick(item.name)}
+                onClick={() => setActiveTab(item.name)}
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-text">{item.name}</span>

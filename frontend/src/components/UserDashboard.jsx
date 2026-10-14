@@ -25,8 +25,7 @@ import {
   UploadCloud,
   Image as ImageIcon,
   Trash2,
-  Camera,
-  ArrowLeft
+  Camera
 } from 'lucide-react';
 import './AdminDashboard.css';
 
@@ -72,44 +71,7 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
       return 'Report problem';
     }
   });
-  const [tabHistory, setTabHistory] = useState([]);
 
-  // Navigate to tab and record history so tenant can back one by one
-  const handleTabClick = (tabName) => {
-    if (tabName !== activeTab) {
-      setTabHistory((prev) => [...prev, activeTab]);
-      setActiveTab(tabName);
-    }
-  };
-
-  // Back step-by-step: modals first -> previous tabs one by one -> login
-  const handleBack = () => {
-    if (problemToDelete) {
-      setProblemToDelete(null);
-      return;
-    }
-    if (selectedPhoto) {
-      setSelectedPhoto(null);
-      return;
-    }
-    if (showNewProblemModal) {
-      setShowNewProblemModal(false);
-      return;
-    }
-    if (tabHistory.length > 0) {
-      const prevTab = tabHistory[tabHistory.length - 1];
-      setTabHistory((prev) => prev.slice(0, prev.length - 1));
-      setActiveTab(prevTab);
-      return;
-    }
-    if (activeTab !== 'Report problem') {
-      setActiveTab('Report problem');
-      return;
-    }
-    if (onLogout) {
-      onLogout();
-    }
-  };
 
   useEffect(() => {
     try {
@@ -362,30 +324,13 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
           </div>
         </div>
 
-        {/* Navigation Menu (Back option, Report problem & My problem) */}
+        {/* Navigation Menu (Report problem & My problem) */}
         <nav className="sidebar-nav">
-          {/* Back Arrow Navigation Option */}
-          <button
-            type="button"
-            className="sidebar-nav-btn sidebar-back-nav-btn"
-            onClick={handleBack}
-            title={
-              showNewProblemModal
-                ? 'Close modal / Back'
-                : tabHistory.length > 0
-                ? `Back to ${tabHistory[tabHistory.length - 1]}`
-                : 'Back to Login'
-            }
-          >
-            <span className="nav-icon"><ArrowLeft size={18} /></span>
-            <span className="nav-text">Back</span>
-          </button>
-
           {/* Item 1: Report problem */}
           <button
             type="button"
             className={`sidebar-nav-btn ${activeTab === 'Report problem' ? 'active' : ''}`}
-            onClick={() => handleTabClick('Report problem')}
+            onClick={() => setActiveTab('Report problem')}
           >
             <span className="nav-icon"><AlertCircle size={18} /></span>
             <span className="nav-text">Report problem</span>
@@ -395,7 +340,7 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
           <button
             type="button"
             className={`sidebar-nav-btn ${activeTab === 'My problem' ? 'active' : ''}`}
-            onClick={() => handleTabClick('My problem')}
+            onClick={() => setActiveTab('My problem')}
           >
             <span className="nav-icon"><ClipboardList size={18} /></span>
             <span className="nav-text">My problem</span>
