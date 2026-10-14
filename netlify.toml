@@ -1,0 +1,12 @@
+# Netlify configuration for PropMate 360
+
+[build]
+  base = "frontend"
+  publish = "dist"
+  command = "npm run build"
+
+# SPA Fallback: Redirect all routes to index.html with 200 status
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
