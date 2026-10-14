@@ -5,6 +5,7 @@ import { connectDB } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import maintenanceRoutes from './routes/maintenanceRoutes.js';
+import { apiLimiter } from './middleware/rateLimiter.js';
 
 // Load environment variables
 dotenv.config();
@@ -24,6 +25,9 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Apply Global Rate Limiting to all API routes
+app.use('/api', apiLimiter);
 
 // API Health Check
 app.get('/api/health', (req, res) => {

@@ -78,6 +78,64 @@ const clearAuthSession = () => {
   }
 };
 
+// --------------------------------------------------------------------------
+// Rate Limiting: 5 Failed Attempts -> 15-Minute Lockout Helper
+// --------------------------------------------------------------------------
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+const getLockoutInfo = (roleKey) => {
+  try {
+    const raw = localStorage.getItem(`propmate_lockout_${roleKey.toLowerCase()}`);
+    if (!raw) return { attempts: 0, isLocked: false, remainingSeconds: 0 };
+    const data = JSON.parse(raw);
+    if (data.lockoutUntil && Date.now() < data.lockoutUntil) {
+      const remainingSeconds = Math.max(1, Math.ceil((data.lockoutUntil - Date.now()) / 1000));
+      return { attempts: data.attempts || MAX_FAILED_ATTEMPTS, isLocked: true, remainingSeconds };
+    }
+    // Expired lockout
+    if (data.lockoutUntil && Date.now() >= data.lockoutUntil) {
+      localStorage.removeItem(`propmate_lockout_${roleKey.toLowerCase()}`);
+    }
+    return { attempts: data.attempts || 0, isLocked: false, remainingSeconds: 0 };
+  } catch (e) {
+    return { attempts: 0, isLocked: false, remainingSeconds: 0 };
+  }
+};
+
+const recordFailedAttempt = (roleKey) => {
+  try {
+    const key = `propmate_lockout_${roleKey.toLowerCase()}`;
+    const current = getLockoutInfo(roleKey);
+    const newAttempts = current.attempts + 1;
+    if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+      const lockoutUntil = Date.now() + LOCKOUT_DURATION_MS;
+      localStorage.setItem(key, JSON.stringify({ attempts: newAttempts, lockoutUntil }));
+      return { attempts: newAttempts, isLocked: true, remainingSeconds: Math.ceil(LOCKOUT_DURATION_MS / 1000) };
+    } else {
+      localStorage.setItem(key, JSON.stringify({ attempts: newAttempts, lockoutUntil: null }));
+      return { attempts: newAttempts, isLocked: false, remainingSeconds: 0 };
+    }
+  } catch (e) {
+    return { attempts: 1, isLocked: false, remainingSeconds: 0 };
+  }
+};
+
+const resetFailedAttempts = (roleKey) => {
+  try {
+    localStorage.removeItem(`propmate_lockout_${roleKey.toLowerCase()}`);
+  } catch (e) {}
+};
+
+const formatRemainingTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0) {
+    return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+  }
+  return `${secs}s`;
+};
+
 export default function App() {
   const initialSession = getAuthSession();
   const [currentPage, setCurrentPage] = useState(() => initialSession?.currentPage || 'login'); // 'login' | 'admin-signup' | 'admin-dashboard' | 'user-dashboard'
@@ -103,6 +161,44 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [showModal, setShowModal] = useState(null); // 'signup' | 'forgot' | 'contact' | null
+  const [lockoutRemaining, setLockoutRemaining] = useState(() => getLockoutInfo(initialSession?.role || 'Tenant').remainingSeconds);
+
+  // Live timer for 15-minute lockout countdown (updates every second)
+  useEffect(() => {
+    const checkLockout = () => {
+      const info = getLockoutInfo(role);
+      if (info.isLocked) {
+        setLockoutRemaining(info.remainingSeconds);
+        // Live update the countdown in the status message banner every second
+        setStatusMessage((prev) => {
+          if (prev && prev.isLockout) {
+            return {
+              type: 'error',
+              isLockout: true,
+              text: `Too many failed attempts (5/5). Account locked for security. Please try again after 15 minutes (Retry in ${formatRemainingTime(info.remainingSeconds)}).`,
+            };
+          }
+          return prev;
+        });
+      } else {
+        setLockoutRemaining(0);
+        setStatusMessage((prev) => {
+          if (prev && prev.isLockout) {
+            return {
+              type: 'success',
+              isLockout: false,
+              text: '15-minute security lock has expired. You may now attempt to log in.',
+            };
+          }
+          return prev;
+        });
+      }
+    };
+
+    checkLockout();
+    const timer = setInterval(checkLockout, 1000);
+    return () => clearInterval(timer);
+  }, [role]);
 
   // Auto-logout when 2 hours have expired
   useEffect(() => {
@@ -141,11 +237,35 @@ export default function App() {
 
   const handleRoleChange = (selectedRole) => {
     setRole(selectedRole);
-    setStatusMessage(null);
+    const info = getLockoutInfo(selectedRole);
+    if (info.isLocked) {
+      setLockoutRemaining(info.remainingSeconds);
+      setStatusMessage({
+        type: 'error',
+        isLockout: true,
+        text: `Too many failed attempts (5/5). Account locked for security. Please try again after 15 minutes (Retry in ${formatRemainingTime(info.remainingSeconds)}).`
+      });
+    } else {
+      setLockoutRemaining(0);
+      setStatusMessage(null);
+    }
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
+
+    // Check if currently locked out
+    const lockout = getLockoutInfo(role);
+    if (lockout.isLocked) {
+      setLockoutRemaining(lockout.remainingSeconds);
+      setStatusMessage({
+        type: 'error',
+        isLockout: true,
+        text: `Too many failed attempts (5/5). Account locked for security. Please try again after 15 minutes (Retry in ${formatRemainingTime(lockout.remainingSeconds)}).`
+      });
+      return;
+    }
+
     if (role === 'Tenant') {
       const cleanKey = secretKey.trim().toUpperCase();
       if (!cleanKey) {
@@ -167,19 +287,34 @@ export default function App() {
 
       // Strict validation: Only allow login if this secret key was created by Admin
       if (!matchedRoom) {
-        if (rooms.length === 0) {
+        const attemptResult = recordFailedAttempt('Tenant');
+        if (attemptResult.isLocked) {
+          setLockoutRemaining(attemptResult.remainingSeconds);
           setStatusMessage({
             type: 'error',
-            text: 'No rooms registered yet. Please ask your admin to add your room and provide your secret key.'
+            isLockout: true,
+            text: `Too many failed attempts (5/5). Wrong secret key entered 5 times. Account locked for security. Please try again after 15 minutes (Retry in ${formatRemainingTime(attemptResult.remainingSeconds)}).`
           });
         } else {
-          setStatusMessage({
-            type: 'error',
-            text: 'Invalid Secret Key. Please enter the secret key provided by your admin.'
-          });
+          const remaining = MAX_FAILED_ATTEMPTS - attemptResult.attempts;
+          if (rooms.length === 0) {
+            setStatusMessage({
+              type: 'error',
+              text: `No rooms registered yet. (${attemptResult.attempts}/5 failed attempts. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before 15 mins lockout).`
+            });
+          } else {
+            setStatusMessage({
+              type: 'error',
+              text: `Invalid Secret Key. (${attemptResult.attempts}/5 failed attempts. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before 15 mins lockout).`
+            });
+          }
         }
         return;
       }
+
+      // Successful login - reset failed attempts
+      resetFailedAttempts('Tenant');
+      setLockoutRemaining(0);
 
       // Save 2-hour session cookie
       setAuthSession({
@@ -205,9 +340,27 @@ export default function App() {
       // Password validation for Admin
       const storedPassword = localStorage.getItem('propmate_admin_password') || 'admin123';
       if (password !== storedPassword) {
-        setStatusMessage({ type: 'error', text: 'Password is wrong. Please enter the correct password.' });
+        const attemptResult = recordFailedAttempt('Admin');
+        if (attemptResult.isLocked) {
+          setLockoutRemaining(attemptResult.remainingSeconds);
+          setStatusMessage({
+            type: 'error',
+            isLockout: true,
+            text: `Too many failed attempts (5/5). Wrong password entered 5 times. Account locked for security. Please try again after 15 minutes (Retry in ${formatRemainingTime(attemptResult.remainingSeconds)}).`
+          });
+        } else {
+          const remaining = MAX_FAILED_ATTEMPTS - attemptResult.attempts;
+          setStatusMessage({
+            type: 'error',
+            text: `Password is wrong. (${attemptResult.attempts}/5 failed attempts. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before 15 mins lockout).`
+          });
+        }
         return;
       }
+
+      // Successful login - reset failed attempts
+      resetFailedAttempts('Admin');
+      setLockoutRemaining(0);
     }
 
     if (role === 'Admin') {

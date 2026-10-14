@@ -8,13 +8,14 @@ import {
   getWorkers,
 } from '../controllers/authController.js';
 import { authMiddleware, isAdmin } from '../middleware/authMiddleware.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
-// Public routes
-router.post('/tenant-signup', tenantSignup);
-router.post('/admin-signup', adminSignup);
-router.post('/login', login);
+// Public routes with brute-force rate limiting
+router.post('/tenant-signup', authLimiter, tenantSignup);
+router.post('/admin-signup', authLimiter, adminSignup);
+router.post('/login', authLimiter, login);
 
 // Protected routes
 router.get('/me', authMiddleware, getMe);

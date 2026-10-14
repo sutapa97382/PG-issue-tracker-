@@ -6,11 +6,12 @@ import {
   assignWorkerToIssue,
 } from '../controllers/maintenanceController.js';
 import { authMiddleware, isAdmin } from '../middleware/authMiddleware.js';
+import { createIssueLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
-// Tenant creates, everyone authenticated can view their relevant tickets
-router.post('/', authMiddleware, createMaintenanceIssue);
+// Tenant creates with spam rate limiting, everyone authenticated can view their relevant tickets
+router.post('/', authMiddleware, createIssueLimiter, createMaintenanceIssue);
 router.get('/', authMiddleware, getMaintenanceIssues);
 
 // Status update (Admin or assigned worker)

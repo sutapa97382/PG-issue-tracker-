@@ -159,6 +159,13 @@ export const assignWorkerToIssue = async (req, res) => {
     const { id } = req.params;
     const { workerId } = req.body;
 
+    if (!workerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'workerId is required to assign a worker',
+      });
+    }
+
     const issue = await Maintenance.findById(id);
     if (!issue) {
       return res.status(404).json({
