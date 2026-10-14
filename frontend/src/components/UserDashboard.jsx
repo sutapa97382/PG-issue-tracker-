@@ -25,7 +25,8 @@ import {
   UploadCloud,
   Image as ImageIcon,
   Trash2,
-  Camera
+  Camera,
+  ArrowLeft
 } from 'lucide-react';
 import './AdminDashboard.css';
 
@@ -71,6 +72,44 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
       return 'Report problem';
     }
   });
+  const [tabHistory, setTabHistory] = useState([]);
+
+  // Navigate to tab and record history so tenant can back one by one
+  const handleTabClick = (tabName) => {
+    if (tabName !== activeTab) {
+      setTabHistory((prev) => [...prev, activeTab]);
+      setActiveTab(tabName);
+    }
+  };
+
+  // Back step-by-step: modals first -> previous tabs one by one -> login
+  const handleBack = () => {
+    if (problemToDelete) {
+      setProblemToDelete(null);
+      return;
+    }
+    if (selectedPhoto) {
+      setSelectedPhoto(null);
+      return;
+    }
+    if (showNewProblemModal) {
+      setShowNewProblemModal(false);
+      return;
+    }
+    if (tabHistory.length > 0) {
+      const prevTab = tabHistory[tabHistory.length - 1];
+      setTabHistory((prev) => prev.slice(0, prev.length - 1));
+      setActiveTab(prevTab);
+      return;
+    }
+    if (activeTab !== 'Report problem') {
+      setActiveTab('Report problem');
+      return;
+    }
+    if (onLogout) {
+      onLogout();
+    }
+  };
 
   useEffect(() => {
     try {
@@ -125,6 +164,7 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
   const modalFileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [problemToDelete, setProblemToDelete] = useState(null);
 
   const handleImageFile = (file) => {
     if (!file) return;
@@ -210,6 +250,13 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
   const totalMyProblems = myProblems.length;
   const inProgressCount = myProblems.filter((p) => p.status === 'In Progress' || p.status === 'Open').length;
   const resolvedCount = myProblems.filter((p) => p.status === 'Resolved').length;
+
+  const confirmDeleteProblem = (id) => {
+    setProblems((prev) => prev.filter((p) => p.id !== id));
+    setProblemToDelete(null);
+    setToastMessage(`Problem ticket #${id} deleted successfully.`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -315,13 +362,30 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
           </div>
         </div>
 
-        {/* Navigation Menu (Report problem & My problem) */}
+        {/* Navigation Menu (Back option, Report problem & My problem) */}
         <nav className="sidebar-nav">
+          {/* Back Arrow Navigation Option */}
+          <button
+            type="button"
+            className="sidebar-nav-btn sidebar-back-nav-btn"
+            onClick={handleBack}
+            title={
+              showNewProblemModal
+                ? 'Close modal / Back'
+                : tabHistory.length > 0
+                ? `Back to ${tabHistory[tabHistory.length - 1]}`
+                : 'Back to Login'
+            }
+          >
+            <span className="nav-icon"><ArrowLeft size={18} /></span>
+            <span className="nav-text">Back</span>
+          </button>
+
           {/* Item 1: Report problem */}
           <button
             type="button"
             className={`sidebar-nav-btn ${activeTab === 'Report problem' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Report problem')}
+            onClick={() => handleTabClick('Report problem')}
           >
             <span className="nav-icon"><AlertCircle size={18} /></span>
             <span className="nav-text">Report problem</span>
@@ -331,7 +395,7 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
           <button
             type="button"
             className={`sidebar-nav-btn ${activeTab === 'My problem' ? 'active' : ''}`}
-            onClick={() => setActiveTab('My problem')}
+            onClick={() => handleTabClick('My problem')}
           >
             <span className="nav-icon"><ClipboardList size={18} /></span>
             <span className="nav-text">My problem</span>
@@ -1076,6 +1140,7 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
                           <th>ASSIGNED TO</th>
                           <th>PRIORITY</th>
                           <th>STATUS</th>
+                          <th style={{ textAlign: 'center' }}>ACTION</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1139,6 +1204,18 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
                                   {isResolved && <CheckCircle size={12} className="resolved-check" />}
                                   {p.status || 'Open'}
                                 </span>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  className="tenant-problem-delete-btn"
+                                  onClick={() => setProblemToDelete(p.id)}
+                                  title="Delete problem ticket"
+                                  aria-label="Delete problem ticket"
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Delete</span>
+                                </button>
                               </td>
                             </tr>
                           );
@@ -1384,6 +1461,89 @@ export const UserDashboard = ({ tenantInfo, onLogout }) => {
                 backgroundColor: '#0F172A'
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Delete Problem Confirmation Modal */}
+      {problemToDelete && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setProblemToDelete(null)}
+          style={{ zIndex: 110 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '420px',
+              padding: '28px 24px',
+              textAlign: 'center',
+              borderRadius: '16px',
+              backgroundColor: '#FFFFFF',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                backgroundColor: '#FEE2E2',
+                color: '#EF4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px'
+              }}
+            >
+              <Trash2 size={24} />
+            </div>
+
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
+              Delete Problem Ticket?
+            </h3>
+            <p style={{ fontSize: '14px', color: '#64748B', lineHeight: 1.5, marginBottom: '24px' }}>
+              Are you sure you want to delete ticket <strong>{problemToDelete}</strong>? This ticket will be permanently removed.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setProblemToDelete(null)}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDeleteProblem(problemToDelete)}
+                style={{
+                  padding: '9px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#EF4444',
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(239, 68, 68, 0.3)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Yes, Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

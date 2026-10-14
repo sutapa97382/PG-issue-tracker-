@@ -106,6 +106,27 @@
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
+/* Sidebar Back Navigation Item (clean nav option, no card container) */
+.sidebar-back-nav-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.sidebar-back-nav-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-back-nav-btn .nav-icon svg {
+  transition: transform 0.2s ease;
+}
+
+.sidebar-back-nav-btn:hover .nav-icon svg {
+  transform: translateX(-3px);
+}
+
 .nav-icon {
   display: flex;
   align-items: center;
@@ -1395,4 +1416,28 @@
 .toast-icon {
   color: #22c55e;
   flex-shrink: 0;
+}
+
+/* Tenant My Problem Delete Button */
+.tenant-problem-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ef4444;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tenant-problem-delete-btn:hover {
+  background-color: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
+  transform: translateY(-1px);
 }
