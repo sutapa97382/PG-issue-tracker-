@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, CheckCircle2, Shield, User, Key, X } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, CheckCircle2, Shield, User, Key, X, ArrowRight, AlertCircle, Check } from 'lucide-react';
 import { PropMateLogo } from './components/PropMateLogo';
 import { BuildingIllustration } from './components/BuildingIllustration';
 import { DotPattern } from './components/DotPattern';
@@ -162,6 +162,70 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState(null);
   const [showModal, setShowModal] = useState(null); // 'signup' | 'forgot' | 'contact' | null
   const [lockoutRemaining, setLockoutRemaining] = useState(() => getLockoutInfo(initialSession?.role || 'Tenant').remainingSeconds);
+
+  // Forgot password interactive flow states
+  const [forgotStep, setForgotStep] = useState('request'); // 'request' | 'sent' | 'reset'
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
+  const [forgotError, setForgotError] = useState(null);
+
+  const handleOpenForgotModal = () => {
+    const adminSavedEmail = localStorage.getItem('propmate_admin_email') || 'sutapa@propmate.com';
+    setForgotEmail(email.trim() || adminSavedEmail);
+    setForgotStep('request');
+    setForgotNewPassword('');
+    setForgotConfirmPassword('');
+    setShowForgotNewPassword(false);
+    setShowForgotConfirmPassword(false);
+    setForgotError(null);
+    setShowModal('forgot');
+  };
+
+  const handleSaveNewPassword = (e) => {
+    e.preventDefault();
+    setForgotError(null);
+
+    if (!forgotNewPassword) {
+      setForgotError('Please enter a new password.');
+      return;
+    }
+    if (forgotNewPassword.length < 4) {
+      setForgotError('Password must be at least 4 characters.');
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError('New passwords do not match. Please verify.');
+      return;
+    }
+
+    // Persist new password and email in localStorage
+    localStorage.setItem('propmate_admin_password', forgotNewPassword);
+    if (forgotEmail) {
+      localStorage.setItem('propmate_admin_email', forgotEmail.trim().toLowerCase());
+    }
+
+    // Immediately reset failed attempt lockouts for Admin
+    resetFailedAttempts('Admin');
+    setLockoutRemaining(0);
+
+    // Auto-populate the login form with the updated credentials
+    setPassword(forgotNewPassword);
+    if (forgotEmail) {
+      setEmail(forgotEmail.trim());
+    }
+
+    // Close the modal
+    setShowModal(null);
+
+    // Show reassuring success confirmation on the login form
+    setStatusMessage({
+      type: 'success',
+      text: 'Password updated successfully! You can now sign in with your new password.'
+    });
+  };
 
   // Live timer for 15-minute lockout countdown (updates every second)
   useEffect(() => {
@@ -607,7 +671,7 @@ export default function App() {
                         <button
                           type="button"
                           className="forgot-password-link"
-                          onClick={() => setShowModal('forgot')}
+                          onClick={handleOpenForgotModal}
                         >
                           Forgot password?
                         </button>
@@ -639,27 +703,193 @@ export default function App() {
                 </button>
 
                 {showModal === 'forgot' && (
-                  <div className="modal-body">
-                    <h3>Reset Password</h3>
-                    <p>Enter your email to receive recovery instructions for your <strong>{role}</strong> account.</p>
-                    <input
-                      type="email"
-                      className="form-input modal-input"
-                      placeholder="you@company.com"
-                      defaultValue={email}
-                    />
-                    <button
-                      className="login-submit-btn modal-action"
-                      onClick={() => {
-                        setShowModal(null);
-                        setStatusMessage({
-                          type: 'success',
-                          text: 'Password reset link has been dispatched to your email.'
-                        });
-                      }}
-                    >
-                      Send Reset Link
-                    </button>
+                  <div className="modal-body forgot-flow-body">
+                    {forgotStep === 'request' && (
+                      <div>
+                        <div className="modal-header-icon-wrap key-badge">
+                          <Key size={26} className="modal-header-icon" />
+                        </div>
+                        <h3>Forgot Password?</h3>
+                        <p>
+                          Enter your registered Admin email below. We will send you a secure link to reset your password.
+                        </p>
+
+                        {forgotError && (
+                          <div className="modal-inline-error">
+                            <AlertCircle size={15} />
+                            <span>{forgotError}</span>
+                          </div>
+                        )}
+
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!forgotEmail.trim() || !/.+@.+\..+/.test(forgotEmail.trim())) {
+                              setForgotError('Please enter a valid email address.');
+                              return;
+                            }
+                            setForgotError(null);
+                            setForgotStep('sent');
+                          }}
+                        >
+                          <div className="form-group modal-form-group">
+                            <label className="form-label">Admin Email Address</label>
+                            <div className="input-icon-wrapper">
+                              <Mail className="input-icon" size={18} />
+                              <input
+                                type="email"
+                                className="form-input"
+                                placeholder="admin@propmate360.com"
+                                value={forgotEmail}
+                                onChange={(e) => {
+                                  setForgotEmail(e.target.value);
+                                  if (forgotError) setForgotError(null);
+                                }}
+                                required
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+
+                          <button type="submit" className="login-submit-btn modal-action">
+                            <span>Send Reset Link</span>
+                            <ArrowRight size={16} />
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    {forgotStep === 'sent' && (
+                      <div>
+                        <div className="modal-header-icon-wrap success-badge">
+                          <CheckCircle2 size={28} className="modal-header-icon success-icon" />
+                        </div>
+                        <h3>Reset Email Dispatched!</h3>
+                        <p>
+                          We have sent a password reset link to your email:
+                        </p>
+                        <div className="dispatched-email-chip">
+                          <Mail size={15} />
+                          <span>{forgotEmail}</span>
+                        </div>
+
+                        {/* Interactive Simulated Inbox Card with direct Change Password Link */}
+                        <div className="email-preview-card">
+                          <div className="email-preview-header">
+                            <span className="email-badge">INBOX SIMULATION</span>
+                            <span className="email-time">Just now</span>
+                          </div>
+                          <div className="email-preview-subject">
+                            🔐 Action Required: Reset Your PropMate 360 Admin Password
+                          </div>
+                          <p className="email-preview-snippet">
+                            Hello Admin, we received a request to change your password. Click the secure link below to change your password immediately:
+                          </p>
+                          <button
+                            type="button"
+                            className="email-action-link-btn"
+                            onClick={() => {
+                              setForgotError(null);
+                              setForgotStep('reset');
+                            }}
+                          >
+                            <span>Click Here to Change Password</span>
+                            <ArrowRight size={16} />
+                          </button>
+                        </div>
+
+                        <div className="modal-footer-nav">
+                          <button
+                            type="button"
+                            className="modal-sub-link"
+                            onClick={() => setForgotStep('request')}
+                          >
+                            ← Change email address
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {forgotStep === 'reset' && (
+                      <div>
+                        <div className="modal-header-icon-wrap lock-badge">
+                          <Lock size={26} className="modal-header-icon lock-icon" />
+                        </div>
+                        <h3>Create New Password</h3>
+                        <p>
+                          Set a new password for your admin account (<strong>{forgotEmail}</strong>).
+                        </p>
+
+                        {forgotError && (
+                          <div className="modal-inline-error">
+                            <AlertCircle size={15} />
+                            <span>{forgotError}</span>
+                          </div>
+                        )}
+
+                        <form onSubmit={handleSaveNewPassword}>
+                          <div className="form-group modal-form-group">
+                            <label className="form-label">New Password</label>
+                            <div className="input-icon-wrapper">
+                              <Lock className="input-icon" size={18} />
+                              <input
+                                type={showForgotNewPassword ? 'text' : 'password'}
+                                className="form-input"
+                                placeholder="Enter at least 4 characters"
+                                value={forgotNewPassword}
+                                onChange={(e) => {
+                                  setForgotNewPassword(e.target.value);
+                                  if (forgotError) setForgotError(null);
+                                }}
+                                required
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                className="password-toggle-btn"
+                                onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                                tabIndex={-1}
+                                aria-label="Toggle new password visibility"
+                              >
+                                {showForgotNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="form-group modal-form-group">
+                            <label className="form-label">Confirm New Password</label>
+                            <div className="input-icon-wrapper">
+                              <Lock className="input-icon" size={18} />
+                              <input
+                                type={showForgotConfirmPassword ? 'text' : 'password'}
+                                className="form-input"
+                                placeholder="Re-type your new password"
+                                value={forgotConfirmPassword}
+                                onChange={(e) => {
+                                  setForgotConfirmPassword(e.target.value);
+                                  if (forgotError) setForgotError(null);
+                                }}
+                                required
+                              />
+                              <button
+                                type="button"
+                                className="password-toggle-btn"
+                                onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                                tabIndex={-1}
+                                aria-label="Toggle confirm password visibility"
+                              >
+                                {showForgotConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <button type="submit" className="login-submit-btn modal-action">
+                            <Check size={18} />
+                            <span>Save New Password</span>
+                          </button>
+                        </form>
+                      </div>
+                    )}
                   </div>
                 )}
                 {showModal === 'contact' && (
