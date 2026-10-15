@@ -694,7 +694,8 @@ export default function App() {
                     {role === 'Admin' ? (
                       <>
                         <p className="signup-prompt">
-                          Don't have an account? ' <button
+                          Don't have an account?{' '}
+                          <button
                             type="button"
                             className="inline-link"
                             onClick={() => setCurrentPage('admin-signup')}
