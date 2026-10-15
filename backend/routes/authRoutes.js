@@ -6,6 +6,8 @@ import {
   createWorker,
   getMe,
   getWorkers,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/authController.js';
 import { authMiddleware, isAdmin } from '../middleware/authMiddleware.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
@@ -16,6 +18,8 @@ const router = express.Router();
 router.post('/tenant-signup', authLimiter, tenantSignup);
 router.post('/admin-signup', authLimiter, adminSignup);
 router.post('/login', authLimiter, login);
+router.post('/forgot-password', authLimiter, forgotPassword);
+router.post('/reset-password', authLimiter, resetPassword);
 
 // Protected routes
 router.get('/me', authMiddleware, getMe);

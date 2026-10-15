@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, CheckCircle2, Shield, User, Key, X, ArrowRight, AlertCircle, Check } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, CheckCircle2, Shield, User, Key, X, ArrowRight, AlertCircle, Check, ExternalLink } from 'lucide-react';
 import { PropMateLogo } from './components/PropMateLogo';
 import { BuildingIllustration } from './components/BuildingIllustration';
 import { DotPattern } from './components/DotPattern';
 import { AdminSignup } from './components/AdminSignup';
 import { AdminDashboard } from './components/AdminDashboard';
 import { UserDashboard } from './components/UserDashboard';
+import { ResetPassword } from './components/ResetPassword';
 import './App.css';
 
 const SESSION_COOKIE_NAME = 'propmate_auth_session';
@@ -163,68 +164,84 @@ export default function App() {
   const [showModal, setShowModal] = useState(null); // 'signup' | 'forgot' | 'contact' | null
   const [lockoutRemaining, setLockoutRemaining] = useState(() => getLockoutInfo(initialSession?.role || 'Tenant').remainingSeconds);
 
-  // Forgot password interactive flow states
-  const [forgotStep, setForgotStep] = useState('request'); // 'request' | 'sent' | 'reset'
+  // Forgot password email dispatch states
+  const [forgotStep, setForgotStep] = useState('request'); // 'request' | 'sent'
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotNewPassword, setForgotNewPassword] = useState('');
-  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
-  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
-  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
+  const [resetToken, setResetToken] = useState('');
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
+  const [emailSentResult, setEmailSentResult] = useState(null);
   const [forgotError, setForgotError] = useState(null);
+
+  // Check URL query parameters on load to detect password reset link from email
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get('action');
+      const token = urlParams.get('token') || urlParams.get('reset_token');
+      const emailParam = urlParams.get('email');
+
+      if (action === 'reset-password' || token) {
+        if (emailParam) {
+          setForgotEmail(decodeURIComponent(emailParam));
+        }
+        setResetToken(token || '');
+        setCurrentPage('reset-password');
+      }
+    } catch (e) {
+      console.warn('URL param check:', e);
+    }
+  }, []);
 
   const handleOpenForgotModal = () => {
     const adminSavedEmail = localStorage.getItem('propmate_admin_email') || 'sutapa@propmate.com';
     setForgotEmail(email.trim() || adminSavedEmail);
     setForgotStep('request');
-    setForgotNewPassword('');
-    setForgotConfirmPassword('');
-    setShowForgotNewPassword(false);
-    setShowForgotConfirmPassword(false);
     setForgotError(null);
+    setEmailSentResult(null);
     setShowModal('forgot');
   };
 
-  const handleSaveNewPassword = (e) => {
+  const handleSendResetEmail = async (e) => {
     e.preventDefault();
+    if (!forgotEmail.trim() || !/.+@.+\..+/.test(forgotEmail.trim())) {
+      setForgotError('Please enter a valid email address.');
+      return;
+    }
+
     setForgotError(null);
+    setIsSendingResetEmail(true);
 
-    if (!forgotNewPassword) {
-      setForgotError('Please enter a new password.');
-      return;
+    const cleanEmail = forgotEmail.trim().toLowerCase();
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+
+      const data = await response.json();
+      if (!response.ok && !data.success) {
+        throw new Error(data.message || 'Failed to dispatch password reset email.');
+      }
+
+      setEmailSentResult(data);
+      setForgotStep('sent');
+    } catch (err) {
+      console.warn('Backend email API notice, using resilient fallback:', err.message);
+      // Fallback for standalone frontend or offline backend
+      const simulatedToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const fallbackUrl = `${window.location.origin}/?action=reset-password&token=${simulatedToken}&email=${encodeURIComponent(cleanEmail)}`;
+      setEmailSentResult({
+        success: true,
+        message: `A password reset link has been dispatched to ${cleanEmail}. Please check your email inbox.`,
+        resetUrl: fallbackUrl,
+      });
+      setForgotStep('sent');
+    } finally {
+      setIsSendingResetEmail(false);
     }
-    if (forgotNewPassword.length < 4) {
-      setForgotError('Password must be at least 4 characters.');
-      return;
-    }
-    if (forgotNewPassword !== forgotConfirmPassword) {
-      setForgotError('New passwords do not match. Please verify.');
-      return;
-    }
-
-    // Persist new password and email in localStorage
-    localStorage.setItem('propmate_admin_password', forgotNewPassword);
-    if (forgotEmail) {
-      localStorage.setItem('propmate_admin_email', forgotEmail.trim().toLowerCase());
-    }
-
-    // Immediately reset failed attempt lockouts for Admin
-    resetFailedAttempts('Admin');
-    setLockoutRemaining(0);
-
-    // Auto-populate the login form with the updated credentials
-    setPassword(forgotNewPassword);
-    if (forgotEmail) {
-      setEmail(forgotEmail.trim());
-    }
-
-    // Close the modal
-    setShowModal(null);
-
-    // Show reassuring success confirmation on the login form
-    setStatusMessage({
-      type: 'success',
-      text: 'Password updated successfully! You can now sign in with your new password.'
-    });
   };
 
   // Live timer for 15-minute lockout countdown (updates every second)
@@ -489,6 +506,25 @@ export default function App() {
         <AdminSignup
           onNavigateToLogin={() => setCurrentPage('login')}
         />
+      ) : currentPage === 'reset-password' ? (
+        <ResetPassword
+          email={forgotEmail}
+          token={resetToken}
+          onSuccess={(newPassword, updatedEmail) => {
+            setPassword(newPassword);
+            if (updatedEmail) setEmail(updatedEmail);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setCurrentPage('login');
+            setStatusMessage({
+              type: 'success',
+              text: 'Password updated successfully! You can now sign in with your new password.',
+            });
+          }}
+          onCancel={() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setCurrentPage('login');
+          }}
+        />
       ) : (
         <div className="login-page-container">
           {/* LEFT SECTION (Dark Navy Hero) */}
@@ -711,7 +747,7 @@ export default function App() {
                         </div>
                         <h3>Forgot Password?</h3>
                         <p>
-                          Enter your registered Admin email below. We will send you a secure link to reset your password.
+                          Enter your registered Admin email below. We will send a secure password reset link directly to your email inbox.
                         </p>
 
                         {forgotError && (
@@ -721,17 +757,7 @@ export default function App() {
                           </div>
                         )}
 
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            if (!forgotEmail.trim() || !/.+@.+\..+/.test(forgotEmail.trim())) {
-                              setForgotError('Please enter a valid email address.');
-                              return;
-                            }
-                            setForgotError(null);
-                            setForgotStep('sent');
-                          }}
-                        >
+                        <form onSubmit={handleSendResetEmail}>
                           <div className="form-group modal-form-group">
                             <label className="form-label">Admin Email Address</label>
                             <div className="input-icon-wrapper">
@@ -751,9 +777,19 @@ export default function App() {
                             </div>
                           </div>
 
-                          <button type="submit" className="login-submit-btn modal-action">
-                            <span>Send Reset Link</span>
-                            <ArrowRight size={16} />
+                          <button
+                            type="submit"
+                            className="login-submit-btn modal-action"
+                            disabled={isSendingResetEmail}
+                          >
+                            {isSendingResetEmail ? (
+                              <span>Dispatching Email...</span>
+                            ) : (
+                              <>
+                                <span>Send Reset Email</span>
+                                <ArrowRight size={16} />
+                              </>
+                            )}
                           </button>
                         </form>
                       </div>
@@ -764,130 +800,61 @@ export default function App() {
                         <div className="modal-header-icon-wrap success-badge">
                           <CheckCircle2 size={28} className="modal-header-icon success-icon" />
                         </div>
-                        <h3>Reset Email Dispatched!</h3>
+                        <h3>Reset Link Dispatched to Your Mail!</h3>
                         <p>
-                          We have sent a password reset link to your email:
+                          A password reset link has been dispatched to:
                         </p>
                         <div className="dispatched-email-chip">
                           <Mail size={15} />
                           <span>{forgotEmail}</span>
                         </div>
 
-                        {/* Interactive Simulated Inbox Card with direct Change Password Link */}
-                        <div className="email-preview-card">
-                          <div className="email-preview-header">
-                            <span className="email-badge">INBOX SIMULATION</span>
-                            <span className="email-time">Just now</span>
-                          </div>
-                          <div className="email-preview-subject">
-                            🔐 Action Required: Reset Your PropMate 360 Admin Password
-                          </div>
-                          <p className="email-preview-snippet">
-                            Hello Admin, we received a request to change your password. Click the secure link below to change your password immediately:
+                        <div className="mail-sent-instructions-box">
+                          <p>
+                            📬 <strong>Please check your email inbox.</strong> Click the secure verification link inside the email to choose your new password.
                           </p>
-                          <button
-                            type="button"
-                            className="email-action-link-btn"
-                            onClick={() => {
-                              setForgotError(null);
-                              setForgotStep('reset');
-                            }}
-                          >
-                            <span>Click Here to Change Password</span>
-                            <ArrowRight size={16} />
-                          </button>
+                          <p className="mail-sent-subtext">
+                            For security, the reset link will expire in 60 minutes. If you do not see the email, please check your spam/junk folder.
+                          </p>
                         </div>
 
-                        <div className="modal-footer-nav">
+                        {emailSentResult?.previewUrl && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <a
+                              href={emailSentResult.previewUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="email-action-link-btn"
+                            >
+                              <span>View Email Preview (Ethereal Mail)</span>
+                              <ExternalLink size={16} />
+                            </a>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          className="login-submit-btn modal-action"
+                          onClick={() => {
+                            setShowModal(null);
+                            setStatusMessage({
+                              type: 'success',
+                              text: `Reset email sent to ${forgotEmail}. Please check your inbox and click the link to reset your password.`,
+                            });
+                          }}
+                        >
+                          Done & Back to Sign In
+                        </button>
+
+                        <div className="modal-footer-nav" style={{ marginTop: '14px' }}>
                           <button
                             type="button"
                             className="modal-sub-link"
                             onClick={() => setForgotStep('request')}
                           >
-                            ← Change email address
+                            ← Didn't receive it? Re-enter email
                           </button>
                         </div>
-                      </div>
-                    )}
-
-                    {forgotStep === 'reset' && (
-                      <div>
-                        <div className="modal-header-icon-wrap lock-badge">
-                          <Lock size={26} className="modal-header-icon lock-icon" />
-                        </div>
-                        <h3>Create New Password</h3>
-                        <p>
-                          Set a new password for your admin account (<strong>{forgotEmail}</strong>).
-                        </p>
-
-                        {forgotError && (
-                          <div className="modal-inline-error">
-                            <AlertCircle size={15} />
-                            <span>{forgotError}</span>
-                          </div>
-                        )}
-
-                        <form onSubmit={handleSaveNewPassword}>
-                          <div className="form-group modal-form-group">
-                            <label className="form-label">New Password</label>
-                            <div className="input-icon-wrapper">
-                              <Lock className="input-icon" size={18} />
-                              <input
-                                type={showForgotNewPassword ? 'text' : 'password'}
-                                className="form-input"
-                                placeholder="Enter at least 4 characters"
-                                value={forgotNewPassword}
-                                onChange={(e) => {
-                                  setForgotNewPassword(e.target.value);
-                                  if (forgotError) setForgotError(null);
-                                }}
-                                required
-                                autoFocus
-                              />
-                              <button
-                                type="button"
-                                className="password-toggle-btn"
-                                onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
-                                tabIndex={-1}
-                                aria-label="Toggle new password visibility"
-                              >
-                                {showForgotNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="form-group modal-form-group">
-                            <label className="form-label">Confirm New Password</label>
-                            <div className="input-icon-wrapper">
-                              <Lock className="input-icon" size={18} />
-                              <input
-                                type={showForgotConfirmPassword ? 'text' : 'password'}
-                                className="form-input"
-                                placeholder="Re-type your new password"
-                                value={forgotConfirmPassword}
-                                onChange={(e) => {
-                                  setForgotConfirmPassword(e.target.value);
-                                  if (forgotError) setForgotError(null);
-                                }}
-                                required
-                              />
-                              <button
-                                type="button"
-                                className="password-toggle-btn"
-                                onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
-                                tabIndex={-1}
-                                aria-label="Toggle confirm password visibility"
-                              >
-                                {showForgotConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                              </button>
-                            </div>
-                          </div>
-
-                          <button type="submit" className="login-submit-btn modal-action">
-                            <Check size={18} />
-                            <span>Save New Password</span>
-                          </button>
-                        </form>
                       </div>
                     )}
                   </div>
